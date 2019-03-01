@@ -3,14 +3,16 @@ module Hit.Issue
 
          -- * Internal helpers
        , mkIssueId
-       , getIssueTitle
        , getOwnerRepo
        , parseOwnerRepo
        , assignToIssue
+       , fetchIssueStrict
+       , issueTitle
+       , Issue
        ) where
 
 import GitHub (Error (..), Id, Issue (..), IssueLabel (..), IssueState (..), Name, Owner, Repo,
-               SimpleUser (..), getUrl, mkId, mkName, untagName, editIssueAssignee)
+               SimpleUser (..), getUrl, mkId, mkName, untagName, editIssueAssignees)
 import GitHub.Auth (Auth (OAuth))
 import GitHub.Data.Options (stateOpen)
 import GitHub.Endpoints.Issues (issue', issuesForRepo', editIssue, editOfIssue)
@@ -21,7 +23,7 @@ import Hit.ColorTerminal (arrow, blueBg, blueCode, boldCode, errorMessage, green
                           resetCode)
 
 import qualified Data.Text as T
-
+import qualified Data.Vector as V
 
 -- | Run the @issue@ command.
 runIssue :: Maybe Int -> IO ()
@@ -89,19 +91,21 @@ makeName = mkName (Proxy @a)
 fetchIssue :: Id Issue -> IO (Either Error Issue)
 fetchIssue iNum = withOwnerRepo (\t o r -> issue' t o r iNum)
 
-getIssueTitle :: Id Issue -> IO Text
-getIssueTitle num = fetchIssue num >>= \case
+fetchIssueStrict :: Id Issue -> IO Issue
+fetchIssueStrict iNum = fetchIssue iNum >>= \case
     Left err -> errorMessage (show err) >> exitFailure
-    Right Issue{..} -> pure issueTitle
+    Right issue -> pure issue
 
-assignToIssue :: Id Issue -> IO (Either Error Issue)
-assignToIssue iNum = withOwnerRepo action
+assignToIssue :: Issue -> IO (Either Error Issue)
+assignToIssue issue = withOwnerRepo action
   where
     action Nothing _ _ = pure $ Left $ UserError "GITHUB_TOKEN lookup failed"
     action (Just t) o r = do
-        let user = Just . makeName . untagName $ o
-        editIssue t o r iNum (editOfIssue {editIssueAssignee = user})
-
+        let currentAssignees = simpleUserLogin <$> issueAssignees issue
+            newAssignee = makeName $ untagName o
+            newAssignees = V.cons newAssignee currentAssignees
+            idIssue = issueId issue
+        editIssue t o r idIssue (editOfIssue {editIssueAssignees = Just newAssignees})
 
 withOwnerRepo
     :: (Maybe Auth -> Name Owner -> Name Repo -> IO (Either Error a))

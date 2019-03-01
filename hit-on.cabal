@@ -40,6 +40,7 @@ library
                      , relude ^>= 0.4
                      , shellmet >= 0.0.0
                      , text
+                     , vector
 
   ghc-options:         -Wall
                        -Wincomplete-uni-patterns

@@ -20,7 +20,7 @@ import Data.Char (isAlphaNum, isDigit, isSpace)
 import Shellmet (($|))
 
 import Hit.ColorTerminal (arrow, errorMessage, greenCode, resetCode, successMessage)
-import Hit.Issue (getIssueTitle, mkIssueId, assignToIssue)
+import Hit.Issue (mkIssueId, assignToIssue, fetchIssueStrict, issueTitle, Issue)
 
 import qualified Data.Text as T
 
@@ -42,11 +42,11 @@ runNew :: Int -> Bool -> IO ()
 runNew issueNum assignOwner = do
     login <- getUsername
     let issueId = mkIssueId issueNum
-    issueTitle <- getIssueTitle issueId
-    let shortDesc = mkShortDesc issueTitle
-    let branchName = login <> "/" <> show issueNum <> "-" <> shortDesc
+    issue <- fetchIssueStrict issueId
+    let shortDesc = mkShortDesc (issueTitle issue)
+        branchName = login <> "/" <> show issueNum <> "-" <> shortDesc
     "git" ["checkout", "-b", branchName]
-    when assignOwner (attemptAssignment issueId)
+    when assignOwner (attemptAssignment issue)
   where
     mkShortDesc :: Text -> Text
     mkShortDesc =
@@ -54,8 +54,11 @@ runNew issueNum assignOwner = do
         . take 5
         . words
         . T.filter (\c -> isAlphaNum c || isDigit c || isSpace c)
-    attemptAssignment issueId = assignToIssue issueId >>= either printError finish
+    attemptAssignment :: Issue -> IO ()
+    attemptAssignment = either printError finish <=< assignToIssue
+    printError :: Show a => a -> IO ()
     printError = errorMessage . T.pack . show
+    finish :: a -> IO ()
     finish = const $ successMessage "Successfully assigned to issue"
 
 -- | @hit commit@ command.
