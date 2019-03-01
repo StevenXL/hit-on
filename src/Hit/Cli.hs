@@ -26,7 +26,7 @@ hit :: IO ()
 hit = execParser cliParser >>= \case
     Hop branchName -> runHop branchName
     Fresh branchName -> runFresh branchName
-    New issueNum -> runNew issueNum
+    New issueNum assignOwner -> runNew issueNum assignOwner
     Issue issueNum -> runIssue issueNum
     Commit message noIssue -> runCommit message noIssue
     Fix message -> runFix message
@@ -50,7 +50,7 @@ cliParser = info ( helper <*> versionP <*> hitP )
 data HitCommand
     = Hop (Maybe Text)
     | Fresh (Maybe Text)
-    | New Int
+    | New Int Bool
     | Issue (Maybe Int)
     | Commit Text Bool
     | Fix (Maybe Text)
@@ -84,7 +84,7 @@ freshP :: Parser HitCommand
 freshP = Fresh <$> maybeBranchP
 
 newP :: Parser HitCommand
-newP = New <$> issueNumP
+newP = New <$> issueNumP <*> assignOwnerP
 
 issueP :: Parser HitCommand
 issueP = Issue <$> optional issueNumP
@@ -134,6 +134,11 @@ commitMessageP = optional $ strArgument (metavar "COMMIT_MESSAGE")
 -- | Parse issue number as an argument.
 issueNumP :: Parser Int
 issueNumP = argument auto $ metavar "ISSUE_NUMBER"
+
+-- | Parse assign owner
+assignOwnerP :: Parser Bool
+assignOwnerP = switch
+    $ long "assign" <> short 'a' <> help "Assign yourself to issue"
 
 -- | Show the version of the tool.
 versionP :: Parser (a -> a)

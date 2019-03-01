@@ -19,8 +19,8 @@ module Hit.Git
 import Data.Char (isAlphaNum, isDigit, isSpace)
 import Shellmet (($|))
 
-import Hit.ColorTerminal (arrow, errorMessage, greenCode, resetCode)
-import Hit.Issue (getIssueTitle, mkIssueId)
+import Hit.ColorTerminal (arrow, errorMessage, greenCode, resetCode, successMessage)
+import Hit.Issue (getIssueTitle, mkIssueId, assignToIssue)
 
 import qualified Data.Text as T
 
@@ -38,14 +38,15 @@ runFresh (nameOrMaster -> branch) = do
     "git" ["rebase", "origin/" <> branch]
 
 -- | @hit new@ command.
-runNew :: Int -> IO ()
-runNew issueNum = do
+runNew :: Int -> Bool -> IO ()
+runNew issueNum assignOwner = do
     login <- getUsername
     let issueId = mkIssueId issueNum
     issueTitle <- getIssueTitle issueId
     let shortDesc = mkShortDesc issueTitle
     let branchName = login <> "/" <> show issueNum <> "-" <> shortDesc
     "git" ["checkout", "-b", branchName]
+    when assignOwner (attemptAssignment issueId)
   where
     mkShortDesc :: Text -> Text
     mkShortDesc =
@@ -53,6 +54,9 @@ runNew issueNum = do
         . take 5
         . words
         . T.filter (\c -> isAlphaNum c || isDigit c || isSpace c)
+    attemptAssignment issueId = assignToIssue issueId >>= either printError finish
+    printError = errorMessage . T.pack . show
+    finish = const $ successMessage "Successfully assigned to issue"
 
 -- | @hit commit@ command.
 runCommit :: Text -> Bool -> IO ()
