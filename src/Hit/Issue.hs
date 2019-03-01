@@ -6,13 +6,14 @@ module Hit.Issue
        , getIssueTitle
        , getOwnerRepo
        , parseOwnerRepo
+       , assignToIssue
        ) where
 
 import GitHub (Error (..), Id, Issue (..), IssueLabel (..), IssueState (..), Name, Owner, Repo,
-               SimpleUser (..), getUrl, mkId, mkName, untagName)
+               SimpleUser (..), getUrl, mkId, mkName, untagName, editIssueAssignee)
 import GitHub.Auth (Auth (OAuth))
 import GitHub.Data.Options (stateOpen)
-import GitHub.Endpoints.Issues (issue', issuesForRepo')
+import GitHub.Endpoints.Issues (issue', issuesForRepo', editIssue, editOfIssue)
 import Shellmet (($|))
 import System.Environment (lookupEnv)
 
@@ -92,6 +93,15 @@ getIssueTitle :: Id Issue -> IO Text
 getIssueTitle num = fetchIssue num >>= \case
     Left err -> errorMessage (show err) >> exitFailure
     Right Issue{..} -> pure issueTitle
+
+assignToIssue :: Id Issue -> IO (Either Error Issue)
+assignToIssue iNum = withOwnerRepo action
+  where
+    action Nothing _ _ = pure $ Left $ UserError "GITHUB_TOKEN lookup failed"
+    action (Just t) o r = do
+        let user = Just . makeName . untagName $ o
+        editIssue t o r iNum (editOfIssue {editIssueAssignee = user})
+
 
 withOwnerRepo
     :: (Maybe Auth -> Name Owner -> Name Repo -> IO (Either Error a))
