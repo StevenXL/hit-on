@@ -1,6 +1,7 @@
 resolver: nightly-2019-02-04
 
 extra-deps:
+  - github-0.21
   - shellmet-0.0.0
 
 ghc-options:
